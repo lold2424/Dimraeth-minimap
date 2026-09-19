@@ -7,6 +7,10 @@ An **unofficial** BepInEx plugin that adds a minimap to [Dimraeth](https://store
 > **Notice**
 > This is an unofficial fan-made mod, not affiliated with or endorsed by Mudtek. No game files or game-derived data are included in this repository or its releases. **It will be taken down immediately at the developer's request** — please open an issue. Use at your own risk.
 
+![The minimap in the top-left corner with quest areas, a guidance route and icons, and the F7 settings panel open below it](docs/screenshot.webp)
+
+*The minimap (top left) showing quest areas, a dashed guidance route and map icons, with the F7 settings panel open.*
+
 ## Features
 
 - A round (or square) minimap in a screen corner, with zoom

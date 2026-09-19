@@ -9,6 +9,10 @@
 >
 > This is an unofficial fan-made mod, not affiliated with or endorsed by Mudtek. No game files or game-derived data are included in this repository or its releases. **It will be taken down immediately at the developer's request** — please open an issue. Use at your own risk.
 
+![왼쪽 위의 미니맵에 퀘스트 범위, 길 안내 점선, 아이콘이 표시되고 그 아래 F7 설정 창이 열려 있는 모습](docs/screenshot.webp)
+
+*미니맵(왼쪽 위)에 퀘스트 범위, 길 안내 점선, 지도 아이콘이 표시된 모습과 F7 설정 창.*
+
 ## 기능
 
 - 화면 구석에 원형(또는 사각) 미니맵 표시, 확대/축소
