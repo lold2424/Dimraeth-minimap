@@ -21,9 +21,11 @@
 
 ## 설치 (플레이어용)
 
-[Releases](../../releases/latest)에서 `DimraethMinimap-vX.Y.Z-full.zip`을 받아 게임 폴더(`Dimraeth.exe`가 있는 곳)에 풉니다. 자세한 내용은 zip 안의 `README-minimap.txt`를 보세요.
+1. [Releases](../../releases/latest)에서 `DimraethMinimap-vX.Y.Z.zip`을 받아 아무 곳에나 풉니다.
+2. 게임을 끄고 `install.bat`을 더블클릭합니다. Steam에서 게임 위치를 자동으로 찾아 설치합니다 (다른 드라이브여도 됩니다). 못 찾으면 폴더를 물어봅니다.
+3. 게임을 실행합니다. 첫 실행은 1~3분 걸립니다.
 
-이미 설치했다면 `-update.zip`만 받아 같은 폴더에 덮어쓰면 됩니다. 제거는 게임 폴더의 `uninstall-minimap.bat`을 실행하면 됩니다.
+업데이트도 새 zip으로 같은 과정을 반복하면 됩니다 (설정 유지). 제거는 게임 폴더의 `uninstall-minimap.bat`을 실행하면 됩니다. 수동 설치를 원하면 zip 안 `payload` 폴더의 내용물을 게임 폴더에 복사하세요.
 
 | 키 | 동작 |
 |---|---|

@@ -1,6 +1,8 @@
 # Builds the plugin and assembles the release zips in dist\.
-#   dist\DimraethMinimap-vX.Y.Z-full.zip    BepInEx + plugin + readme + uninstaller (first install)
-#   dist\DimraethMinimap-vX.Y.Z-update.zip  plugin only (for people who already installed)
+#   dist\DimraethMinimap-vX.Y.Z.zip         install.bat + payload\ (BepInEx + plugin + readme + uninstaller).
+#                                           Players extract it anywhere and double-click install.bat, which
+#                                           finds the game through Steam. Same zip for first install and updates.
+#   dist\DimraethMinimap-vX.Y.Z-update.zip  plugin DLL only, for manual updates
 # Nothing from the game is packaged: only BepInEx (LGPL-2.1) and our own DLL.
 # Works in Windows PowerShell 5.1.
 param(
@@ -52,21 +54,27 @@ function Add-Plugin([string]$target) {
     Copy-Item $dll $dir
 }
 
-Write-Host '== Staging full package'
-$full = Join-Path $stage 'full'
+Write-Host '== Staging installer package'
+$package = Join-Path $stage 'full'
+$full = Join-Path $package 'payload'   # everything in here ends up in the game folder
+New-Item -ItemType Directory -Force $package | Out-Null
 Expand-Archive -Path $bepZip -DestinationPath $full
 Add-Plugin $full
 Copy-Item (Join-Path $root 'package\uninstall-minimap.bat') $full
-# Old Notepad needs a BOM to show Korean correctly.
+Copy-Item (Join-Path $root 'package\install.bat') $package
+# Windows PowerShell 5.1 and old Notepad need a BOM to read Korean correctly.
+$bom = New-Object Text.UTF8Encoding $true
+[IO.File]::WriteAllText((Join-Path $package 'install.ps1'), [IO.File]::ReadAllText((Join-Path $root 'package\install.ps1')), $bom)
 $readme = [IO.File]::ReadAllText((Join-Path $root 'package\README-minimap.txt'))
-[IO.File]::WriteAllText((Join-Path $full 'README-minimap.txt'), $readme, (New-Object Text.UTF8Encoding $true))
+[IO.File]::WriteAllText((Join-Path $full 'README-minimap.txt'), $readme, $bom)
+[IO.File]::WriteAllText((Join-Path $package 'README-minimap.txt'), $readme, $bom)
 $lic = Join-Path $full 'licenses-minimap'
 New-Item -ItemType Directory -Force $lic | Out-Null
 Copy-Item $bepLicense (Join-Path $lic 'BepInEx-LICENSE.txt')
 Copy-Item (Join-Path $root 'LICENSE') (Join-Path $lic 'DimraethMinimap-LICENSE.txt')
 
 # Guard: refuse to ship anything that came from the game.
-$forbidden = Get-ChildItem $full -Recurse -File | Where-Object {
+$forbidden = Get-ChildItem $package -Recurse -File | Where-Object {
     $_.FullName -match '\\interop\\' -or $_.Name -match '^(Assembly-CSharp|GameAssembly|UnityPlayer|global-metadata)'
 }
 if ($forbidden) { throw "Game-derived files in package: $($forbidden.Name -join ', ')" }
@@ -75,9 +83,9 @@ Write-Host '== Staging update package'
 $update = Join-Path $stage 'update'
 Add-Plugin $update
 
-$fullZip   = Join-Path $dist "DimraethMinimap-v$version-full.zip"
+$fullZip   = Join-Path $dist "DimraethMinimap-v$version.zip"
 $updateZip = Join-Path $dist "DimraethMinimap-v$version-update.zip"
-Compress-Archive -Path (Join-Path $full '*')   -DestinationPath $fullZip
+Compress-Archive -Path (Join-Path $package '*') -DestinationPath $fullZip
 Compress-Archive -Path (Join-Path $update '*') -DestinationPath $updateZip
 Remove-Item $stage -Recurse -Force
 
