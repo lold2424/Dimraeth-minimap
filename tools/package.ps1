@@ -73,6 +73,12 @@ New-Item -ItemType Directory -Force $lic | Out-Null
 Copy-Item $bepLicense (Join-Path $lic 'BepInEx-LICENSE.txt')
 Copy-Item (Join-Path $root 'LICENSE') (Join-Path $lic 'DimraethMinimap-LICENSE.txt')
 
+# cmd.exe can misparse batch files with Unix line endings, whatever git checked out: ship them as CRLF.
+Get-ChildItem $package -Recurse -Filter *.bat | ForEach-Object {
+    $text = [IO.File]::ReadAllText($_.FullName) -replace "`r?`n", "`r`n"
+    [IO.File]::WriteAllText($_.FullName, $text, (New-Object Text.ASCIIEncoding))
+}
+
 # Guard: refuse to ship anything that came from the game.
 $forbidden = Get-ChildItem $package -Recurse -File | Where-Object {
     $_.FullName -match '\\interop\\' -or $_.Name -match '^(Assembly-CSharp|GameAssembly|UnityPlayer|global-metadata)'
