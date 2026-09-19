@@ -22,7 +22,7 @@ namespace DimraethMinimap
     {
         private sealed class Row
         {
-            public string Label;
+            public Func<string> Label;
             public Func<string> Value;
             public Action<int> Change; // -1 / +1
             public TextMeshProUGUI LabelText, ValueText;
@@ -40,6 +40,14 @@ namespace DimraethMinimap
         private int _selected;
         private float _nextRepeat;
         private int _builtForHeight;
+        private bool _builtKorean;
+
+        /// <summary>Korean or English, following the Language setting (Auto = the system language).</summary>
+        internal static bool Korean =>
+            Plugin.Language.Value == UiLanguage.Korean ||
+            (Plugin.Language.Value == UiLanguage.Auto && Application.systemLanguage == SystemLanguage.Korean);
+
+        private static string T(string korean, string english) => Korean ? korean : english;
         private Image _close;
         private float _nextMouseRepeat;
         private bool _mouseBroken;
@@ -62,20 +70,20 @@ namespace DimraethMinimap
             group.interactable = false;
 
             _title = NewText("Title", _panel, font, TextColor, TextAlignmentOptions.Left);
-            _title.text = "미니맵 설정";
             _hint = NewText("Hint", _panel, font, DimTextColor, TextAlignmentOptions.Left);
             _hint2 = NewText("Hint2", _panel, font, DimTextColor, TextAlignmentOptions.Left);
 
-            AddRow("미니맵 표시", () => Plugin.Enabled.Value ? "켜짐" : "꺼짐", d => Plugin.Enabled.Value = !Plugin.Enabled.Value);
-            AddRow("미니맵 크기", () => Percent(Plugin.SizeFraction.Value), d => Step(Plugin.SizeFraction, d * 0.01f, 0.08f, 0.6f));
-            AddRow("보이는 범위", () => "x" + Plugin.Zoom.Value.ToString("0.0"), d => Step(Plugin.Zoom, d * 0.25f, Plugin.ZoomMin.Value, Plugin.ZoomMax.Value));
-            AddRow("아이콘 크기", () => Percent(Plugin.IconScale.Value), d => Step(Plugin.IconScale, d * 0.01f, 0.04f, 0.3f));
-            AddRow("위치", () => CornerName(Plugin.Position.Value), d => Plugin.Position.Value = (Corner)((((int)Plugin.Position.Value + d) % 4 + 4) % 4));
-            AddRow("좌우 간격", () => Percent(Plugin.MarginFraction.Value, 1), d => Step(Plugin.MarginFraction, d * 0.005f, 0f, 0.5f));
-            AddRow("상하 간격", () => Percent(Plugin.MarginVertical.Value, 1), d => Step(Plugin.MarginVertical, d * 0.005f, 0f, 0.5f));
-            AddRow("투명도", () => Percent(Plugin.Opacity.Value), d => Step(Plugin.Opacity, d * 0.05f, 0.1f, 1f));
-            AddRow("모양", () => Plugin.Circular.Value ? "원형" : "사각형", d => Plugin.Circular.Value = !Plugin.Circular.Value);
-            AddRow("길 안내 점선", () => OnOff(Plugin.ShowRoutes.Value), d => Plugin.ShowRoutes.Value = !Plugin.ShowRoutes.Value);
+            AddRow(() => T("미니맵 표시", "Show minimap"), () => OnOff(Plugin.Enabled.Value), d => Plugin.Enabled.Value = !Plugin.Enabled.Value);
+            AddRow(() => T("미니맵 크기", "Minimap size"), () => Percent(Plugin.SizeFraction.Value), d => Step(Plugin.SizeFraction, d * 0.01f, 0.08f, 0.6f));
+            AddRow(() => T("보이는 범위", "Visible range"), () => "x" + Plugin.Zoom.Value.ToString("0.0"), d => Step(Plugin.Zoom, d * 0.25f, Plugin.ZoomMin.Value, Plugin.ZoomMax.Value));
+            AddRow(() => T("아이콘 크기", "Icon size"), () => Percent(Plugin.IconScale.Value), d => Step(Plugin.IconScale, d * 0.01f, 0.04f, 0.3f));
+            AddRow(() => T("위치", "Position"), () => CornerName(Plugin.Position.Value), d => Plugin.Position.Value = (Corner)((((int)Plugin.Position.Value + d) % 4 + 4) % 4));
+            AddRow(() => T("좌우 간격", "Side margin"), () => Percent(Plugin.MarginFraction.Value, 1), d => Step(Plugin.MarginFraction, d * 0.005f, 0f, 0.5f));
+            AddRow(() => T("상하 간격", "Vertical margin"), () => Percent(Plugin.MarginVertical.Value, 1), d => Step(Plugin.MarginVertical, d * 0.005f, 0f, 0.5f));
+            AddRow(() => T("투명도", "Opacity"), () => Percent(Plugin.Opacity.Value), d => Step(Plugin.Opacity, d * 0.05f, 0.1f, 1f));
+            AddRow(() => T("모양", "Shape"), () => Plugin.Circular.Value ? T("원형", "Round") : T("사각형", "Square"), d => Plugin.Circular.Value = !Plugin.Circular.Value);
+            AddRow(() => T("길 안내 점선", "Guidance routes"), () => OnOff(Plugin.ShowRoutes.Value), d => Plugin.ShowRoutes.Value = !Plugin.ShowRoutes.Value);
+            AddRow(() => "언어 / Language", () => LanguageName(Plugin.Language.Value), d => Plugin.Language.Value = (UiLanguage)((((int)Plugin.Language.Value + d) % 3 + 3) % 3));
 
             foreach (var row in _rows)
             {
@@ -83,7 +91,6 @@ namespace DimraethMinimap
                 row.Background = rect.gameObject.AddComponent<Image>();
                 row.Background.raycastTarget = false;
                 row.LabelText = NewText("Label", rect, font, TextColor, TextAlignmentOptions.Left);
-                row.LabelText.text = row.Label;
                 row.ValueText = NewText("Value", rect, font, TextColor, TextAlignmentOptions.Center);
                 row.Minus = NewButton("Minus", rect, font, "<");
                 row.Plus = NewButton("Plus", rect, font, ">");
@@ -173,9 +180,12 @@ namespace DimraethMinimap
             _panel.sizeDelta = new Vector2(width, height);
             _panel.anchoredPosition = new Vector2(right ? -marginX : marginX, top ? -offsetY : offsetY);
 
-            if (_builtForHeight != h)
+            if (_builtForHeight != h || _builtKorean != Korean)
             {
                 _builtForHeight = h;
+                _builtKorean = Korean;
+                _title.text = T("미니맵 설정", "Minimap settings");
+                foreach (var row in _rows) row.LabelText.text = row.Label();
                 Place(_title.rectTransform, 0, rowH, pad, width);
                 _title.fontSize = fontSize * 1.1f;
                 for (int i = 0; i < _rows.Count; i++)
@@ -197,8 +207,8 @@ namespace DimraethMinimap
                 Place(_hint2.rectTransform, _rows.Count + 1, rowH, pad, width);
                 _hint2.rectTransform.anchoredPosition += new Vector2(0f, -rowH * 0.8f);
                 _hint.fontSize = _hint2.fontSize = fontSize * 0.85f;
-                _hint.text = "키보드:  ↑ ↓ 항목 선택    ← → 값 조절";
-                _hint2.text = $"마우스:  < > 클릭    닫기:  {Plugin.SettingsKey.Value} 또는 X";
+                _hint.text = T("키보드:  ↑ ↓ 항목 선택    ← → 값 조절", "Keyboard:  ↑ ↓ select    ← → adjust");
+                _hint2.text = T($"마우스:  < > 클릭    닫기:  {Plugin.SettingsKey.Value} 또는 X", $"Mouse:  click < >    Close:  {Plugin.SettingsKey.Value} or X");
                 float closeSize = Mathf.Round(rowH * 0.82f);
                 var closeRect = _close.rectTransform;
                 closeRect.anchorMin = closeRect.anchorMax = closeRect.pivot = new Vector2(1f, 1f);
@@ -218,7 +228,7 @@ namespace DimraethMinimap
 
         // -------------------------------------------------------------- helpers
 
-        private void AddRow(string label, Func<string> value, Action<int> change)
+        private void AddRow(Func<string> label, Func<string> value, Action<int> change)
         {
             _rows.Add(new Row { Label = label, Value = value, Change = change });
         }
@@ -239,16 +249,26 @@ namespace DimraethMinimap
         }
 
         private static string Percent(float fraction, int decimals = 0) => (fraction * 100f).ToString(decimals == 0 ? "0" : "0.0") + "%";
-        private static string OnOff(bool on) => on ? "켜짐" : "꺼짐";
+        private static string OnOff(bool on) => on ? T("켜짐", "On") : T("꺼짐", "Off");
+
+        private static string LanguageName(UiLanguage language)
+        {
+            switch (language)
+            {
+                case UiLanguage.Korean: return "한국어";
+                case UiLanguage.English: return "English";
+                default: return T("자동", "Auto");
+            }
+        }
 
         private static string CornerName(Corner corner)
         {
             switch (corner)
             {
-                case Corner.TopLeft: return "왼쪽 위";
-                case Corner.TopRight: return "오른쪽 위";
-                case Corner.BottomLeft: return "왼쪽 아래";
-                default: return "오른쪽 아래";
+                case Corner.TopLeft: return T("왼쪽 위", "Top left");
+                case Corner.TopRight: return T("오른쪽 위", "Top right");
+                case Corner.BottomLeft: return T("왼쪽 아래", "Bottom left");
+                default: return T("오른쪽 아래", "Bottom right");
             }
         }
 

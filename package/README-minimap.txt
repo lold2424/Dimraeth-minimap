@@ -1,3 +1,5 @@
+(English below / 영어 안내는 아래에 있습니다)
+
 Dimraeth Minimap - 설치 안내
 ================================
 
@@ -76,3 +78,87 @@ F9          진단 정보를 로그에 기록 (문제 제보용)
 - BepInEx 6 (모드 로더, LGPL-2.1) - https://github.com/BepInEx/BepInEx
   라이선스 전문: licenses-minimap 폴더
 게임 파일이나 게임에서 추출한 데이터는 들어 있지 않습니다.
+
+======================================================================
+ENGLISH
+======================================================================
+
+Dimraeth Minimap - install guide
+================================
+
+Adds a minimap in a screen corner.
+It only draws on your own screen and never touches game data or networking.
+You can play with people who do not have the mod.
+
+
+Install / update
+----------------
+1. Close the game.
+2. Extract the whole zip anywhere (Desktop, Downloads...).
+3. Double-click install.bat in the extracted folder.
+   - It finds the game through Steam and installs the mod, on any drive.
+   - If "Windows protected your PC" appears, choose [More info] > [Run anyway].
+   - If it cannot find the game, it asks for the game folder
+     (Steam library: right-click Dimraeth > Manage > Browse local files).
+4. Start the game.
+
+For a new version, repeat the same steps with the new zip. Your settings are kept.
+After installing you can delete the extracted folder and the zip.
+
+   (Manual install: copy everything inside the payload folder into the game folder.)
+
+   * The first launch after installing takes 1-3 minutes and needs an internet connection.
+     (The mod loader analyses the game once; after that, launches are normal.)
+   * If your antivirus blocks winhttp.dll, add an exception. It is part of the BepInEx mod loader.
+
+
+Keys
+----
+F7          Open / close the settings panel
+            Keyboard: Up/Down = select an item, Left/Right = change the value
+            Mouse: click the < > buttons next to a value, X = close   (saved on close)
+            Minimap size, visible range, icon size, position, margins, opacity, language...
+F8          Show / hide the minimap
+PageUp      Zoom in
+PageDown    Zoom out
+F9          Write diagnostics to the log (for bug reports)
+
+White dot = you, light-blue dots = other players in the same region
+(players out of range are shown on the rim, in their direction).
+
+The minimap shows the same icons as the map screen: discovered places, quest / conversation NPCs,
+map fragments (collected ones greyed out), beacons placed by you or your party, the targets of
+tracked quests (diamond) and the dashed guidance routes.
+Far quest targets and beacons stick to the rim as a direction hint.
+Only what the game already shows you is displayed - no monsters, nothing hidden.
+
+
+Settings
+--------
+Most settings are in the in-game panel (F7), including the language (Korean / English).
+After the first launch this file also exists; edit it in Notepad and restart the game:
+
+  BepInEx\config\com.yhj.dimraeth.minimap.cfg
+
+It additionally holds the key bindings and, under [Markers], a switch per icon type.
+If you lose FPS in camera mode, lower TextureSize and raise RefreshInterval (map mode, the default, costs nothing).
+
+
+After a game update
+-------------------
+If the minimap stops showing, wait for a new version of the mod.
+The mod is built so that a problem switches off the minimap only; the game keeps running.
+
+
+Uninstall
+---------
+Run uninstall-minimap.bat in the game folder. It removes the mod and the mod loader.
+(Steam's "Verify integrity of game files" does not remove added files.)
+
+
+Contents
+--------
+- Dimraeth Minimap (BepInEx\plugins\DimraethMinimap)
+- BepInEx 6 (mod loader, LGPL-2.1) - https://github.com/BepInEx/BepInEx
+  License texts: licenses-minimap folder
+No game files or game-derived data are included.

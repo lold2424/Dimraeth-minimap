@@ -12,11 +12,13 @@ namespace DimraethMinimap
 
     public enum MinimapMode { Map, Camera }
 
+    public enum UiLanguage { Auto, Korean, English }
+
     [BepInPlugin(Guid, "Dimraeth Minimap", Version)]
     public class Plugin : BasePlugin
     {
         public const string Guid = "com.yhj.dimraeth.minimap";
-        public const string Version = "0.6.5";
+        public const string Version = "0.7.0";
 
         internal static ManualLogSource Logger;
         internal static ConfigFile Settings;
@@ -38,6 +40,7 @@ namespace DimraethMinimap
         internal static ConfigEntry<bool> ShowGameIcons;
         internal static ConfigEntry<bool> ShowTeammates;
         internal static ConfigEntry<MinimapMode> Mode;
+        internal static ConfigEntry<UiLanguage> Language;
         internal static ConfigEntry<bool> ShowQuests;
         internal static ConfigEntry<bool> ShowPois;
         internal static ConfigEntry<bool> ShowQuestNpcs;
@@ -60,6 +63,7 @@ namespace DimraethMinimap
             Enabled = Config.Bind("General", "Enabled", true, "Show the minimap. Toggled in-game with ToggleKey.");
             ShowTeammates = Config.Bind("General", "ShowTeammates", true, "Show other players as dots (clamped to the edge when out of range).");
 
+            Language = Config.Bind("General", "Language", UiLanguage.Auto, "Language of the in-game settings panel. Auto follows the system language (Korean, otherwise English).");
             Mode = Config.Bind("General", "Mode", MinimapMode.Map, "Map = crop of the game's own world map (no FPS cost, respects fog of war). Camera = live top-down view of the world (shows everything around you, but causes a hitch on every redraw).");
 
             ShowQuests = Config.Bind("Markers", "ShowQuests", true, "Show the targets of your tracked quests (diamond + quest area). Far targets stick to the rim as a direction hint.");
