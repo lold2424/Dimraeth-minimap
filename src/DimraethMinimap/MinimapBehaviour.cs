@@ -25,8 +25,12 @@ namespace DimraethMinimap
             }
             catch (Exception e)
             {
-                // Never let the minimap take the game down: after repeated failures, switch off.
-                if (++_errors == 1) Plugin.Logger.LogError("Minimap update failed: " + e);
+                // Never let the minimap take the game down: rebuild the UI once, and after repeated failures switch off.
+                if (++_errors == 1)
+                {
+                    Plugin.Logger.LogError("Minimap update failed (rebuilding the UI): " + e);
+                    try { _controller?.ResetUi(); } catch { }
+                }
                 if (_errors >= MaxConsecutiveErrors)
                 {
                     Plugin.Logger.LogError("Minimap disabled after repeated errors (game update?). The game itself is unaffected.");

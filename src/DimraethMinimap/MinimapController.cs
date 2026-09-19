@@ -49,7 +49,7 @@ namespace DimraethMinimap
 
         private readonly List<Vector3> _others = new List<Vector3>();
         private int _layoutW, _layoutH;
-        private float _layoutSize, _layoutMargin;
+        private float _layoutSize, _layoutMargin, _layoutMarginY;
         private Corner _layoutCorner;
         private bool _layoutCircular;
         private float _sizePx;
@@ -72,6 +72,8 @@ namespace DimraethMinimap
         private readonly List<Marker> _markers = new List<Marker>();
         private readonly List<Image> _iconPool = new List<Image>();
         private readonly List<QuestPin> _questPins = new List<QuestPin>();
+
+        private SettingsPanel _settings;
 
         private float _worldSince = -1f;
         private bool _autoDiagDone;
@@ -96,15 +98,28 @@ namespace DimraethMinimap
                 show = GameMap.Broken; // no map for this place: hide. Broken: carry on in camera mode.
             _mapMode &= !GameMap.Broken;
 
+            bool settingsOpen = _settings != null && _settings.IsOpen;
             if (!show)
             {
+                // The settings panel must stay usable with the minimap switched off (that is one of its settings).
+                if (settingsOpen && main != null && hasLocal && _root != null)
+                {
+                    ApplyLayout();
+                    if (_frame.gameObject.activeSelf) _frame.gameObject.SetActive(false);
+                    LayoutSettings(false);
+                    if (!_root.activeSelf) _root.SetActive(true);
+                    return;
+                }
+                if (settingsOpen) _settings.Toggle();
                 Hide();
                 _worldSince = -1f;
                 return;
             }
 
             EnsureUi();
+            if (!_frame.gameObject.activeSelf) _frame.gameObject.SetActive(true);
             ApplyLayout();
+            LayoutSettings(true);
             _viewHalf = (main.orthographic ? main.orthographicSize : 8f) * Plugin.Zoom.Value;
 
             if (_mapMode)
@@ -149,6 +164,8 @@ namespace DimraethMinimap
             if (kb == null) return;
 
             if (Pressed(kb, Plugin.ToggleKey.Value)) Plugin.Enabled.Value = !Plugin.Enabled.Value;
+            if (Pressed(kb, Plugin.SettingsKey.Value)) ToggleSettings();
+            _settings?.HandleKeys(kb);
             if (Pressed(kb, Plugin.ZoomInKey.Value)) SetZoom(Plugin.Zoom.Value / ZoomStep);
             if (Pressed(kb, Plugin.ZoomOutKey.Value)) SetZoom(Plugin.Zoom.Value * ZoomStep);
             if (Pressed(kb, Plugin.DiagnosticsKey.Value)) Diagnostics.Dump(_cam, _mapHolder);
@@ -159,6 +176,29 @@ namespace DimraethMinimap
             if (key == Key.None) return false;
             var control = kb[key];
             return control != null && control.wasPressedThisFrame;
+        }
+
+        private void ToggleSettings()
+        {
+            // Only in a world: the panel lives on the minimap's canvas and borrows the game's font.
+            if (GameAccess.LocalComponent == null) return;
+            EnsureUi();
+            if (_settings == null)
+            {
+                var font = GameMarkers.TryGetGameFont();
+                if (font == null) font = TMPro.TMP_Settings.defaultFontAsset;
+                _settings = new SettingsPanel(_root.transform, font);
+                Plugin.Logger.LogInfo("Settings panel built (font: " + (font != null ? font.name : "none") + ").");
+            }
+            _settings.Toggle();
+        }
+
+        private void LayoutSettings(bool minimapVisible)
+        {
+            if (_settings == null || !_settings.IsOpen) return;
+            float marginX = Mathf.Round(Screen.height * Plugin.MarginFraction.Value);
+            float marginY = Mathf.Round(Screen.height * Plugin.MarginVertical.Value);
+            _settings.Layout(Plugin.Position.Value, _sizePx, marginX, marginY, minimapVisible);
         }
 
         private void SetZoom(float zoom)
@@ -421,15 +461,47 @@ namespace DimraethMinimap
 
         // ------------------------------------------------------------------- ui
 
+        /// <summary>
+        /// Throws the whole UI away so the next Tick builds a fresh one. The game destroys our objects when a
+        /// multiplayer session starts; everything cached below the root (pools included) is then dead and must
+        /// not be touched again - touching a destroyed Unity object throws.
+        /// </summary>
+        public void ResetUi()
+        {
+            try { if (_root != null) UnityEngine.Object.Destroy(_root); } catch { }
+            _root = null;
+            ForgetUi();
+        }
+
+        private void ForgetUi()
+        {
+            if (_settings != null && _settings.IsOpen) { Plugin.Settings.SaveOnConfigSet = true; }
+            _settings = null;
+            _teamDots.Clear();
+            _iconPool.Clear();
+            _questPins.Clear();
+            _dashPool.Clear();
+            _localDot = null;
+            _mapInstance = null;
+            _mapInstanceId = IntPtr.Zero;
+            _fogParent = null;
+            _nextRebuildTry = 0f;
+            _layoutW = -1;
+        }
+
         private void EnsureUi()
         {
             if (_root != null) return;
+            ForgetUi(); // first build, or the game destroyed the previous UI
 
             _circle = MakeCircleSprite(128);
 
             _root = new GameObject("DimraethMinimapUI");
             _root.layer = UiLayer;
             UnityEngine.Object.DontDestroyOnLoad(_root);
+            // Hidden from scene-wide searches, so game code that sweeps up stray objects leaves it alone.
+            _root.hideFlags = HideFlags.HideAndDontSave;
+            Plugin.Logger.LogInfo("Minimap UI built.");
             _canvas = _root.AddComponent<Canvas>();
             _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             _group = _root.AddComponent<CanvasGroup>();
@@ -482,23 +554,24 @@ namespace DimraethMinimap
             if (_rt != null && (_view.texture == null || _view.texture.Pointer != _rt.Pointer)) _view.texture = _rt;
 
             if (_layoutW == Screen.width && _layoutH == Screen.height &&
-                _layoutSize == Plugin.SizeFraction.Value && _layoutMargin == Plugin.MarginFraction.Value &&
+                _layoutSize == Plugin.SizeFraction.Value && _layoutMargin == Plugin.MarginFraction.Value && _layoutMarginY == Plugin.MarginVertical.Value &&
                 _layoutCorner == Plugin.Position.Value && _layoutCircular == Plugin.Circular.Value)
                 return;
 
             _layoutW = Screen.width; _layoutH = Screen.height;
-            _layoutSize = Plugin.SizeFraction.Value; _layoutMargin = Plugin.MarginFraction.Value;
+            _layoutSize = Plugin.SizeFraction.Value; _layoutMargin = Plugin.MarginFraction.Value; _layoutMarginY = Plugin.MarginVertical.Value;
             _layoutCorner = Plugin.Position.Value; _layoutCircular = Plugin.Circular.Value;
 
             _sizePx = Mathf.Round(Screen.height * _layoutSize);
             float margin = Mathf.Round(Screen.height * _layoutMargin);
+            float marginY = Mathf.Round(Screen.height * _layoutMarginY);
             bool right = _layoutCorner == Corner.TopRight || _layoutCorner == Corner.BottomRight;
             bool top = _layoutCorner == Corner.TopLeft || _layoutCorner == Corner.TopRight;
             var anchor = new Vector2(right ? 1f : 0f, top ? 1f : 0f);
 
             _frame.anchorMin = anchor; _frame.anchorMax = anchor; _frame.pivot = anchor;
             _frame.sizeDelta = new Vector2(_sizePx, _sizePx);
-            _frame.anchoredPosition = new Vector2(right ? -margin : margin, top ? -margin : margin);
+            _frame.anchoredPosition = new Vector2(right ? -margin : margin, top ? -marginY : marginY);
 
             float border = Mathf.Max(2f, Mathf.Round(_sizePx * BorderFraction));
             _maskRect.anchorMin = Vector2.zero; _maskRect.anchorMax = Vector2.one;
@@ -597,7 +670,7 @@ namespace DimraethMinimap
                     var pin = _questPins[pins++];
                     pin.Root.gameObject.SetActive(true);
                     pin.Root.anchoredPosition = placed * half;
-                    float d = iconPx * 0.62f;
+                    float d = iconPx * 0.31f;
                     pin.Root.sizeDelta = new Vector2(d, d);
                     pin.Fill.color = m.Color;
 

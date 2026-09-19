@@ -326,6 +326,22 @@ namespace DimraethMinimap
             }
         }
 
+        /// <summary>The font the game's quest tracker uses right now - it can show the player's language.</summary>
+        public static TMPro.TMP_FontAsset TryGetGameFont()
+        {
+            try { return ReadGameFont(); }
+            catch (Exception e) { Plugin.Logger.LogWarning("Game font unavailable, using the TextMeshPro default. " + e.Message); return null; }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static TMPro.TMP_FontAsset ReadGameFont()
+        {
+            if (GameAccess.LocalComponent == null) return null;
+            var tracker = Map()?._questIndicator?.questTracker;
+            var text = tracker != null ? tracker.questNameText : null;
+            return text != null ? text.font : null;
+        }
+
         public static void Describe(StringBuilder sb)
         {
             sb.AppendLine($"  points of interest shown={_pois.Count} (discovered names={_discovered.Count}) broken={_poiBroken}");

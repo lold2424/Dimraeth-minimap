@@ -4,7 +4,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <AssemblyName>DimraethMinimap</AssemblyName>
     <RootNamespace>DimraethMinimap</RootNamespace>
-    <Version>0.5.1</Version>
+    <Version>0.6.0</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -32,6 +32,7 @@
     <Reference Include="$(BepInExDir)\interop\UnityEngine.UI.dll" Private="false" />
     <Reference Include="$(BepInExDir)\interop\UnityEngine.UIModule.dll" Private="false" />
     <Reference Include="$(BepInExDir)\interop\UnityEngine.TextRenderingModule.dll" Private="false" />
+    <Reference Include="$(BepInExDir)\interop\Unity.TextMeshPro.dll" Private="false" />
   </ItemGroup>
 
 </Project>
