@@ -2,7 +2,8 @@
 #   dist\DimraethMinimap-vX.Y.Z.zip         install.bat + payload\ (BepInEx + plugin + readme + uninstaller).
 #                                           Players extract it anywhere and double-click install.bat, which
 #                                           finds the game through Steam. Same zip for first install and updates.
-#   dist\DimraethMinimap-vX.Y.Z-update.zip  plugin DLL only, for manual updates
+# One file on purpose: GitHub lists release assets alphabetically, so a second "-update" zip sorted above the
+# real one and new players would have grabbed it.
 # Nothing from the game is packaged: only BepInEx (LGPL-2.1) and our own DLL.
 # Works in Windows PowerShell 5.1.
 param(
@@ -85,14 +86,8 @@ $forbidden = Get-ChildItem $package -Recurse -File | Where-Object {
 }
 if ($forbidden) { throw "Game-derived files in package: $($forbidden.Name -join ', ')" }
 
-Write-Host '== Staging update package'
-$update = Join-Path $stage 'update'
-Add-Plugin $update
-
 $fullZip   = Join-Path $dist "DimraethMinimap-v$version.zip"
-$updateZip = Join-Path $dist "DimraethMinimap-v$version-update.zip"
 Compress-Archive -Path (Join-Path $package '*') -DestinationPath $fullZip
-Compress-Archive -Path (Join-Path $update '*') -DestinationPath $updateZip
 Remove-Item $stage -Recurse -Force
 
 Get-ChildItem $dist | ForEach-Object { '{0}  {1:N1} MB' -f $_.Name, ($_.Length / 1MB) }
