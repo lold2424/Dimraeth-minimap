@@ -30,14 +30,14 @@
 
 | 키 | 동작 |
 |---|---|
-| F7 | **설정 창** 열기/닫기 (↑↓ 항목 선택, ←→ 값 조절, 닫을 때 저장) |
+| F7 | **설정 창** 열기/닫기. 키보드(↑↓ 항목 선택, ←→ 값 조절) 또는 마우스(`<` `>` 클릭)로 조절, 닫을 때 저장 |
 | F8 | 미니맵 켜기/끄기 |
 | PageUp / PageDown | 확대 / 축소 |
 | F9 | 진단 정보를 `BepInEx/LogOutput.log`에 기록 |
 
 설정 파일: `BepInEx/config/com.yhj.dimraeth.minimap.cfg` (위치, 크기, 모양, 투명도, 단축키, `[Markers]`에서 아이콘 종류별 켜기/끄기와 크기)
 
-알려진 한계: 퀘스트 범위 **안**에 들어가 있는 동안에는 그 퀘스트의 핀이 미니맵에 나오지 않습니다 (게임 HUD 표시기와 같은 동작).
+퀘스트 범위 안에 들어가 있는 동안에도 범위 원과 핀은 유지되며, 퀘스트를 끝내거나 범위를 벗어나면 사라집니다.
 
 ## 빌드 (개발용)
 
@@ -59,7 +59,7 @@ powershell -File tools\package.ps1 -GameDir "D:\SteamLibrary\steamapps\common\Di
 | `GameAccess.cs` | 플레이어 위치 읽기. 네트워크 목록 조회만 사용 (씬 전체 검색 금지 - 이 게임에서는 심한 끊김 유발) |
 | `GameMap.cs` | 게임의 지도 데이터(좌표 변환, 발견 지역) 읽기 |
 | `GameMarkers.cs` | 아이콘/퀘스트 목표/길 안내 경로 읽기. 게임이 이미 들고 있는 목록만 복사 |
-| `SettingsPanel.cs` | F7 설정 창. 키보드로만 조작 (마우스 클릭은 게임에도 전달되므로) |
+| `SettingsPanel.cs` | F7 설정 창. 키보드와 마우스로 조작 |
 | `Diagnostics.cs`, `FrameStats.cs` | F9 진단 로그, 프레임 걸림 측정 |
 
 게임 클래스를 건드리는 곳은 `GameAccess.cs`, `GameMap.cs`, `GameMarkers.cs`뿐이며 모두 읽기 전용입니다. 게임 업데이트로 깨지면 해당 기능만 꺼집니다.

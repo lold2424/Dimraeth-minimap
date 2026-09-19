@@ -32,8 +32,8 @@ namespace DimraethMinimap
     /// The game's MapState snapshot arrays (PlayerMap.Build*) are deliberately NOT used: they are arrays of
     /// non-blittable structs, which Il2CppInterop cannot index safely. Reading them through raw memory was
     /// tried (v0.4.3) and rolled back: a wrong layout would crash the game instead of failing softly.
-    /// Known gap as a result: quest targets come from the HUD indicator, which drops a quest while the
-    /// player stands inside its area.
+    /// As a result quest targets come from the HUD indicator, which drops a quest while the player stands
+    /// inside its area; ReadQuestTargets remembers areas to cover that.
     /// </summary>
     internal static class GameMarkers
     {
@@ -48,6 +48,8 @@ namespace DimraethMinimap
         private static Sprite _beaconSprite, _fragmentSprite;
         private static int _fragmentCount;
         private static bool _routeBroken;
+        private static readonly List<Vector2> _beaconPositions = new List<Vector2>();
+        private static readonly List<Vector2> _questTargets = new List<Vector2>();
         private static readonly List<Route> _routes = new List<Route>();
         private static int _routeCount;
         private static string _routeReport = "";
@@ -80,7 +82,9 @@ namespace DimraethMinimap
                 _live.Clear();
                 if (Plugin.ShowQuestNpcs.Value) Guard(ref _npcBroken, "quest NPC icons", ReadQuestNpcs);
                 if (Plugin.ShowQuests.Value) Guard(ref _questBroken, "quest targets", ReadQuestTargets);
-                if (Plugin.ShowBeacons.Value) Guard(ref _beaconBroken, "map beacons", ReadBeacons);
+                // Also needed by the routes below, to tell live beacon routes from leftovers.
+                _beaconPositions.Clear();
+                if (Plugin.ShowBeacons.Value || Plugin.ShowRoutes.Value) Guard(ref _beaconBroken, "map beacons", ReadBeacons);
                 _routeCount = 0;
                 if (Plugin.ShowRoutes.Value) Guard(ref _routeBroken, "routes", ReadRoutes);
             }
@@ -208,15 +212,26 @@ namespace DimraethMinimap
             var caches = quests != null ? quests._pathCaches : null;
             if (caches != null)
             {
+                // The game does not clear a finished quest's path (nor its "active" count) right away. Its list of
+                // current quest targets is kept honest, so a path only counts while its target is still in there.
+                _questTargets.Clear();
+                var targets = quests._targetPositions;
+                if (targets != null) for (int t = 0; t < targets.Count; t++) { Vector3 q = targets[t]; _questTargets.Add(new Vector2(q.x, q.y)); }
+
                 int active = Mathf.Min(quests._activePathCount, caches.Count);
-                report.Append($"quest paths active={active}/{caches.Count}");
+                report.Append($"quest paths active={active}/{caches.Count} targets={_questTargets.Count}");
                 for (int i = 0; i < active; i++)
                 {
                     var c = caches[i];
                     if (c == null || !c.Valid) continue;
                     var corners = c.TrimmedCorners;
                     var ahead = c.AheadRoutePoints;
-                    report.Append($" [corners={(corners != null ? corners.Count : -1)} ahead={(ahead != null ? ahead.Count : -1)} hasAhead={c.HasAhead}]");
+                    Vector3 goal = c.TargetAtCompute;
+                    bool live = false;
+                    for (int t = 0; t < _questTargets.Count && !live; t++)
+                        live = (_questTargets[t] - new Vector2(goal.x, goal.y)).sqrMagnitude < 25f;
+                    report.Append($" [corners={(corners != null ? corners.Count : -1)} ahead={(ahead != null ? ahead.Count : -1)} hasAhead={c.HasAhead} live={live}]");
+                    if (!live) continue;
                     var points = corners != null && corners.Count > 1 ? corners : ahead;
                     AddRoute(points, quests.ColourFor(c.Category));
                 }
@@ -232,8 +247,14 @@ namespace DimraethMinimap
                     var f = followers[i];
                     if (f == null) continue;
                     var route = f._route;
-                    report.Append($" [route={(route != null ? route.Count : -1)}]");
-                    AddRoute(route, beacons.BannerColour);
+                    // The game keeps a follower (and its last route) around after its beacon is removed,
+                    // so only draw routes whose target is a beacon that still exists.
+                    Vector3 target = f._targetAtCompute;
+                    bool live = false;
+                    for (int b = 0; b < _beaconPositions.Count && !live; b++)
+                        live = (_beaconPositions[b] - new Vector2(target.x, target.y)).sqrMagnitude < 9f;
+                    report.Append($" [route={(route != null ? route.Count : -1)} live={live}]");
+                    if (live) AddRoute(route, beacons.BannerColour);
                 }
             }
             _routeReport = report.ToString();
@@ -272,6 +293,8 @@ namespace DimraethMinimap
             {
                 CustomMarkerData data = list[i];
                 if (!map.IsMarkerFromMeOrMyParty(data.ownerId)) continue;
+                _beaconPositions.Add(new Vector2(data.worldPosition.x, data.worldPosition.y));
+                if (!Plugin.ShowBeacons.Value) continue;
                 _live.Add(new Marker
                 {
                     Kind = MarkerKind.Beacon,
@@ -316,6 +339,9 @@ namespace DimraethMinimap
             var radii = indicator._targetRadii;
             var categories = indicator._targetCategories;
 
+            var quests = indicator._targetQuests;
+            foreach (var r in _remembered) r.Listed = false;
+
             for (int i = 0; i < positions.Count; i++)
             {
                 Vector3 p = positions[i];
@@ -323,6 +349,53 @@ namespace DimraethMinimap
                 if (radii != null && i < radii.Count) marker.Radius = radii[i];
                 if (categories != null && i < categories.Count) marker.Color = indicator.ColourFor(categories[i]);
                 _live.Add(marker);
+                if (quests != null && i < quests.Count && marker.Radius > 0.5f) Remember((int)quests[i], marker);
+            }
+
+            if (!_insideBroken)
+            {
+                try { KeepAreasWeStandIn(indicator); }
+                catch (Exception e)
+                {
+                    _insideBroken = true;
+                    _remembered.Clear();
+                    Plugin.Logger.LogWarning("Could not ask the game whether the player is inside a quest area; areas hide on entry as before. " + e.Message);
+                }
+            }
+        }
+
+        // The HUD indicator drops a quest from its target list the moment the player steps into the quest area
+        // (there is nothing left to point at). On a minimap that is exactly when the area is worth seeing, so
+        // areas are remembered and kept for as long as the game itself says the player is inside that quest's area.
+        // Quest is kept as its number so this class itself does not depend on the game's Quest type.
+        private sealed class RememberedTarget { public int Quest; public Marker Marker; public bool Listed; }
+        private static readonly List<RememberedTarget> _remembered = new List<RememberedTarget>();
+        private static bool _insideBroken;
+
+        private static void Remember(int quest, Marker marker)
+        {
+            foreach (var r in _remembered)
+            {
+                if (r.Quest != quest || (r.Marker.World - marker.World).sqrMagnitude > 4f) continue;
+                r.Marker = marker; r.Listed = true;
+                return;
+            }
+            if (_remembered.Count < 32) _remembered.Add(new RememberedTarget { Quest = quest, Marker = marker, Listed = true });
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void KeepAreasWeStandIn(QuestIndicator indicator)
+        {
+            if (_remembered.Count == 0) return;
+            bool haveLocal = GameAccess.TryGetLocal(out Vector3 me);
+            for (int i = _remembered.Count - 1; i >= 0; i--)
+            {
+                var r = _remembered[i];
+                if (r.Listed) continue; // still in the game's list: already drawn above
+                bool near = haveLocal && (r.Marker.World - new Vector2(me.x, me.y)).magnitude <= r.Marker.Radius * 1.15f + 2f;
+                // The game is the judge: a finished quest no longer has an area to be inside of.
+                if (near && indicator.IsPlayerInsideQuestArea((Quest)r.Quest)) _live.Add(r.Marker);
+                else _remembered.RemoveAt(i);
             }
         }
 

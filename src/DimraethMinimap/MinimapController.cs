@@ -166,6 +166,7 @@ namespace DimraethMinimap
             if (Pressed(kb, Plugin.ToggleKey.Value)) Plugin.Enabled.Value = !Plugin.Enabled.Value;
             if (Pressed(kb, Plugin.SettingsKey.Value)) ToggleSettings();
             _settings?.HandleKeys(kb);
+            _settings?.HandleMouse();
             if (Pressed(kb, Plugin.ZoomInKey.Value)) SetZoom(Plugin.Zoom.Value / ZoomStep);
             if (Pressed(kb, Plugin.ZoomOutKey.Value)) SetZoom(Plugin.Zoom.Value * ZoomStep);
             if (Pressed(kb, Plugin.DiagnosticsKey.Value)) Diagnostics.Dump(_cam, _mapHolder);
@@ -507,6 +508,9 @@ namespace DimraethMinimap
             _group = _root.AddComponent<CanvasGroup>();
             _group.interactable = false;
             _group.blocksRaycasts = false; // never eat clicks meant for the game
+            // Only the settings panel is a raycast target (it overrides the group above). The raycaster is what
+            // makes the game's "is the pointer over UI?" checks see the panel while the mouse is on it.
+            _root.AddComponent<GraphicRaycaster>();
 
             _frame = NewRect("Frame", _root.transform);
             var frameImage = _frame.gameObject.AddComponent<Image>();
@@ -674,13 +678,16 @@ namespace DimraethMinimap
                     pin.Root.sizeDelta = new Vector2(d, d);
                     pin.Fill.color = m.Color;
 
-                    bool showArea = !clamped && m.Radius > 0.5f;
+                    // The area is drawn where it really is (the mask clips it), independent of the pin: when the
+                    // pin is pushed to the rim because the centre is out of view, part of the area can still be in view.
+                    float reach = m.Radius / Mathf.Max(0.01f, _viewHalf);
+                    bool showArea = m.Radius > 0.5f && n.magnitude - reach < 1.45f;
                     if (pin.Area.gameObject.activeSelf != showArea) pin.Area.gameObject.SetActive(showArea);
                     if (showArea)
                     {
                         float area = m.Radius * 2f * pxPerWorld;
                         pin.Area.sizeDelta = new Vector2(area, area);
-                        pin.Area.anchoredPosition = placed * half;
+                        pin.Area.anchoredPosition = n * half;
                         pin.AreaImage.color = new Color(m.Color.r, m.Color.g, m.Color.b, 0.22f);
                     }
                     continue;
