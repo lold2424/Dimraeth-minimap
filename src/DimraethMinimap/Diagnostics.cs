@@ -23,6 +23,7 @@ namespace DimraethMinimap
             Section(sb, "game minimap leftovers", GameMinimap);
             Section(sb, "players", Players);
             Section(sb, "game map", GameMap.Describe);
+            Section(sb, "markers", GameMarkers.Describe);
             if (mapHolder != null)
                 sb.AppendLine($"minimap map holder: active={mapHolder.gameObject.activeSelf} scale={mapHolder.localScale.x} anchored={mapHolder.anchoredPosition} children={mapHolder.childCount}");
             if (minimapCam != null)

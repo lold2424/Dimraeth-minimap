@@ -16,7 +16,7 @@ namespace DimraethMinimap
     public class Plugin : BasePlugin
     {
         public const string Guid = "com.yhj.dimraeth.minimap";
-        public const string Version = "0.3.4";
+        public const string Version = "0.5.0";
 
         internal static ManualLogSource Logger;
 
@@ -36,6 +36,13 @@ namespace DimraethMinimap
         internal static ConfigEntry<bool> ShowGameIcons;
         internal static ConfigEntry<bool> ShowTeammates;
         internal static ConfigEntry<MinimapMode> Mode;
+        internal static ConfigEntry<bool> ShowQuests;
+        internal static ConfigEntry<bool> ShowPois;
+        internal static ConfigEntry<bool> ShowQuestNpcs;
+        internal static ConfigEntry<bool> ShowBeacons;
+        internal static ConfigEntry<bool> ShowMapFragments;
+        internal static ConfigEntry<bool> ShowRoutes;
+        internal static ConfigEntry<float> IconScale;
         internal static ConfigEntry<Key> ToggleKey;
         internal static ConfigEntry<Key> ZoomInKey;
         internal static ConfigEntry<Key> ZoomOutKey;
@@ -50,6 +57,14 @@ namespace DimraethMinimap
             ShowTeammates = Config.Bind("General", "ShowTeammates", true, "Show other players as dots (clamped to the edge when out of range).");
 
             Mode = Config.Bind("General", "Mode", MinimapMode.Map, "Map = crop of the game's own world map (no FPS cost, respects fog of war). Camera = live top-down view of the world (shows everything around you, but causes a hitch on every redraw).");
+
+            ShowQuests = Config.Bind("Markers", "ShowQuests", true, "Show the targets of your tracked quests (diamond + quest area). Far targets stick to the rim as a direction hint.");
+            ShowPois = Config.Bind("Markers", "ShowPointsOfInterest", true, "Show points of interest you have discovered (waypoints, landmarks), with the map screen's icons.");
+            ShowQuestNpcs = Config.Bind("Markers", "ShowQuestNpcs", true, "Show quest / conversation NPC icons, as on the map screen.");
+            ShowRoutes = Config.Bind("Markers", "ShowRoutes", true, "Show the game's dashed guidance routes to tracked quests and beacons, as on the map screen.");
+            ShowMapFragments = Config.Bind("Markers", "ShowMapFragments", true, "Show map fragments the way the map screen does: all of them, collected ones greyed out.");
+            ShowBeacons = Config.Bind("Markers", "ShowBeacons", true, "Show the map beacons you or your party placed on the map screen. Far beacons stick to the rim.");
+            IconScale = Config.Bind("Markers", "IconSize", 0.2f, new ConfigDescription("Icon size as a fraction of the minimap size.", new AcceptableValueRange<float>(0.04f, 0.3f)));
 
             Position = Config.Bind("Layout", "Corner", Corner.TopLeft, "Screen corner the minimap sits in.");
             SizeFraction = Config.Bind("Layout", "Size", 0.24f, new ConfigDescription("Minimap size as a fraction of screen height.", new AcceptableValueRange<float>(0.08f, 0.6f)));

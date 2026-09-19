@@ -64,6 +64,15 @@ namespace DimraethMinimap
         private float _nextRebuildTry;
         private readonly HashSet<string> _regions = new HashSet<string>();
 
+        private const float MarkerRim = 0.8f; // markers are bigger than dots: keep them clear of the round edge
+        private const float QuestHintRange = 1500f; // world units; beyond this a rim hint is just noise
+        private const int MaxDashes = 160;
+        private RectTransform _areaLayer, _routeLayer, _iconLayer, _pinLayer;
+        private readonly List<Image> _dashPool = new List<Image>();
+        private readonly List<Marker> _markers = new List<Marker>();
+        private readonly List<Image> _iconPool = new List<Image>();
+        private readonly List<QuestPin> _questPins = new List<QuestPin>();
+
         private float _worldSince = -1f;
         private bool _autoDiagDone;
 
@@ -112,6 +121,7 @@ namespace DimraethMinimap
             }
             if (_view.enabled == _mapMode) _view.enabled = !_mapMode;
             if (_mapHolder.gameObject.activeSelf != _mapMode) _mapHolder.gameObject.SetActive(_mapMode);
+            UpdateMarkers();
             UpdateDots(hasLocal, localPos);
 
             if (!_root.activeSelf) _root.SetActive(true);
@@ -447,6 +457,15 @@ namespace DimraethMinimap
             _mapHolder = NewRect("MapHolder", _maskRect);
             _mapHolder.anchorMin = _mapHolder.anchorMax = _mapHolder.pivot = new Vector2(0.5f, 0.5f);
             _mapHolder.sizeDelta = Vector2.zero;
+            // Its own canvas: sliding the map every frame then moves one batch instead of rebuilding
+            // the geometry of every map tile and fog piece.
+            _mapHolder.gameObject.AddComponent<Canvas>();
+
+            // Markers sit above the map but inside the mask: quest areas, then icons, then quest pins.
+            _areaLayer = NewRect("QuestAreas", _maskRect); Stretch(_areaLayer);
+            _routeLayer = NewRect("Routes", _maskRect); Stretch(_routeLayer);
+            _iconLayer = NewRect("Icons", _maskRect); Stretch(_iconLayer);
+            _pinLayer = NewRect("QuestPins", _maskRect); Stretch(_pinLayer);
 
             _dotLayer = NewRect("Dots", _frame);
             Stretch(_dotLayer);
@@ -520,30 +539,255 @@ namespace DimraethMinimap
 
         private void PlaceDot(RectTransform dot, Vector3 world)
         {
-            Vector2 n;
+            // Out-of-range teammates stick to the rim so you can still see which way they are.
+            dot.anchoredPosition = ClampToRim(Normalize(world), out _) * (_sizePx * 0.5f);
+        }
+
+        /// <summary>World position to minimap coordinates: (0,0) is the centre, 1 is the edge.</summary>
+        private Vector2 Normalize(Vector3 world)
+        {
             if (_mapMode)
             {
                 var d = new Vector2(world.x, world.y) - _map.WorldPosition;
                 float unit = Mathf.Max(0.01f, _viewHalf * Mathf.Abs(_map.Scale.x));
-                n = Vector2.Scale(d, _map.Scale) / unit;
+                return Vector2.Scale(d, _map.Scale) / unit;
             }
-            else
+            return (PlaneOffset(world) - PlaneOffset(_focus)) / Mathf.Max(0.01f, _viewHalf);
+        }
+
+        private Vector2 ClampToRim(Vector2 n, out bool clamped, float rim = 0.93f)
+        {
+            clamped = _layoutCircular ? n.magnitude > rim : Mathf.Max(Mathf.Abs(n.x), Mathf.Abs(n.y)) > rim;
+            if (!clamped) return n;
+            if (_layoutCircular) return n.normalized * rim;
+            return new Vector2(Mathf.Clamp(n.x, -rim, rim), Mathf.Clamp(n.y, -rim, rim));
+        }
+
+        // -------------------------------------------------------------- markers
+
+        private sealed class QuestPin
+        {
+            public RectTransform Root, Area;
+            public Image AreaImage, Fill;
+        }
+
+        private void UpdateMarkers()
+        {
+            _markers.Clear();
+            // Markers are placed with the map's coordinates; indoors the map is pinned, so they would be wrong.
+            if (_mapMode && !_map.Indoors) GameMarkers.Collect(_markers);
+
+            float half = _sizePx * 0.5f;
+            float pxPerWorld = half / Mathf.Max(0.01f, _viewHalf);
+            DrawRoutes(half);
+            float iconPx = Mathf.Max(10f, _sizePx * Plugin.IconScale.Value);
+            int icons = 0, pins = 0;
+
+            for (int i = 0; i < _markers.Count; i++)
             {
-                n = (PlaneOffset(world) - PlaneOffset(_focus)) / Mathf.Max(0.01f, _viewHalf);
+                var m = _markers[i];
+                Vector2 n = Normalize(m.World);
+
+                if (m.Kind == MarkerKind.QuestTarget)
+                {
+                    // Too far to mean anything as a direction (other map / other end of the world).
+                    if (n.magnitude * _viewHalf > QuestHintRange) continue;
+                    Vector2 placed = ClampToRim(n, out bool clamped, MarkerRim);
+                    if (pins == _questPins.Count) _questPins.Add(NewQuestPin());
+                    var pin = _questPins[pins++];
+                    pin.Root.gameObject.SetActive(true);
+                    pin.Root.anchoredPosition = placed * half;
+                    float d = iconPx * 0.62f;
+                    pin.Root.sizeDelta = new Vector2(d, d);
+                    pin.Fill.color = m.Color;
+
+                    bool showArea = !clamped && m.Radius > 0.5f;
+                    if (pin.Area.gameObject.activeSelf != showArea) pin.Area.gameObject.SetActive(showArea);
+                    if (showArea)
+                    {
+                        float area = m.Radius * 2f * pxPerWorld;
+                        pin.Area.sizeDelta = new Vector2(area, area);
+                        pin.Area.anchoredPosition = placed * half;
+                        pin.AreaImage.color = new Color(m.Color.r, m.Color.g, m.Color.b, 0.22f);
+                    }
+                    continue;
+                }
+
+                if (m.Sprite == null) continue;
+                if (m.Kind == MarkerKind.Beacon)
+                {
+                    // Beacons are "go here" marks: keep them on the rim when out of view, like quest targets.
+                    if (n.magnitude * _viewHalf > QuestHintRange) continue;
+                    n = ClampToRim(n, out _, MarkerRim);
+                }
+                // Other icons outside the view are simply not drawn.
+                else if ((_layoutCircular ? n.magnitude : Mathf.Max(Mathf.Abs(n.x), Mathf.Abs(n.y))) > 1.05f) continue;
+                if (icons == _iconPool.Count) _iconPool.Add(NewIcon());
+                var image = _iconPool[icons++];
+                image.gameObject.SetActive(true);
+                if (image.sprite == null || image.sprite.Pointer != m.Sprite.Pointer) image.sprite = m.Sprite;
+                image.color = m.Color.a > 0f && m.Kind == MarkerKind.Poi ? m.Color : Color.white;
+                float s = m.Kind == MarkerKind.QuestNpc ? iconPx * 0.75f : iconPx;
+                var fit = FitFor(m.Sprite);
+                image.rectTransform.sizeDelta = new Vector2(s * fit.Grow, s * fit.Grow);
+                image.rectTransform.anchoredPosition = n * half + fit.Shift * s;
             }
 
-            // Out-of-range teammates stick to the rim so you can still see which way they are.
-            const float rim = 0.93f;
-            if (_layoutCircular)
+            for (int i = icons; i < _iconPool.Count; i++) if (_iconPool[i].gameObject.activeSelf) _iconPool[i].gameObject.SetActive(false);
+            for (int i = pins; i < _questPins.Count; i++)
             {
-                if (n.magnitude > rim) n = n.normalized * rim;
+                var unused = _questPins[i];
+                if (unused.Root.gameObject.activeSelf) unused.Root.gameObject.SetActive(false);
+                if (unused.Area.gameObject.activeSelf) unused.Area.gameObject.SetActive(false);
             }
-            else
+        }
+
+        private struct SpriteFit { public float Grow; public Vector2 Shift; }
+        private readonly Dictionary<IntPtr, SpriteFit> _spriteFits = new Dictionary<IntPtr, SpriteFit>();
+
+        /// <summary>
+        /// Many of the game's map icons are a small picture inside a large transparent canvas (room for glow),
+        /// so drawn at a fixed box size they come out tiny. This returns how much to enlarge the box so the
+        /// visible picture fills it, and how far to shift it so the picture - not the canvas - is centred.
+        /// </summary>
+        private SpriteFit FitFor(Sprite sprite)
+        {
+            if (_spriteFits.TryGetValue(sprite.Pointer, out var fit)) return fit;
+            fit = new SpriteFit { Grow = 1f, Shift = Vector2.zero };
+            try
             {
-                n.x = Mathf.Clamp(n.x, -rim, rim);
-                n.y = Mathf.Clamp(n.y, -rim, rim);
+                Rect r = sprite.rect;
+                Vector4 pad = UnityEngine.Sprites.DataUtility.GetPadding(sprite); // left, bottom, right, top
+                float visW = r.width - pad.x - pad.z, visH = r.height - pad.y - pad.w;
+                float vis = Mathf.Max(visW, visH);
+                if (vis > 1f)
+                {
+                    fit.Grow = Mathf.Clamp(Mathf.Max(r.width, r.height) / vis, 1f, 8f);
+                    fit.Shift = -new Vector2((pad.x - pad.z) * 0.5f, (pad.y - pad.w) * 0.5f) / vis;
+                }
+                Plugin.Logger.LogInfo($"icon {sprite.name}: rect={r.size} padding={pad} grow={fit.Grow:F2}");
             }
-            dot.anchoredPosition = n * (_sizePx * 0.5f);
+            catch (Exception e)
+            {
+                Plugin.Logger.LogDebug("sprite padding unavailable: " + e.Message);
+            }
+            _spriteFits[sprite.Pointer] = fit;
+            return fit;
+        }
+
+        // --------------------------------------------------------------- routes
+
+        private void DrawRoutes(float half)
+        {
+            int used = 0;
+            int count = _mapMode && !_map.Indoors ? GameMarkers.RouteCount : 0;
+            float dash = Mathf.Max(5f, _sizePx * 0.03f), gap = dash * 0.8f, thickness = Mathf.Max(2.5f, _sizePx * 0.012f);
+
+            for (int r = 0; r < count; r++)
+            {
+                var route = GameMarkers.Routes[r];
+                var colour = new Color(route.Color.r, route.Color.g, route.Color.b, 0.9f);
+                float phase = 0f; // distance into the current dash+gap cycle, carried across corners
+                for (int i = 0; i + 1 < route.Points.Count; i++)
+                {
+                    Vector2 a = Normalize(route.Points[i]), b = Normalize(route.Points[i + 1]);
+                    if (!ClipToView(ref a, ref b)) continue;
+                    a *= half; b *= half;
+                    float length = (b - a).magnitude;
+                    if (length < 0.5f) continue;
+                    Vector2 dir = (b - a) / length;
+                    float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+
+                    float t = -phase;
+                    while (t < length && used < MaxDashes)
+                    {
+                        float from = Mathf.Max(0f, t), to = Mathf.Min(length, t + dash);
+                        if (to - from > 0.5f)
+                        {
+                            if (used == _dashPool.Count) _dashPool.Add(NewDash());
+                            var image = _dashPool[used++];
+                            if (!image.gameObject.activeSelf) image.gameObject.SetActive(true);
+                            image.color = colour;
+                            var rect = image.rectTransform;
+                            rect.sizeDelta = new Vector2(to - from, thickness);
+                            rect.anchoredPosition = a + dir * ((from + to) * 0.5f);
+                            rect.localRotation = Quaternion.Euler(0f, 0f, angle);
+                        }
+                        t += dash + gap;
+                    }
+                    phase = (phase + length) % (dash + gap);
+                }
+            }
+            for (int i = used; i < _dashPool.Count; i++) if (_dashPool[i].gameObject.activeSelf) _dashPool[i].gameObject.SetActive(false);
+        }
+
+        /// <summary>Clips a segment (minimap units, edge = 1) to a box a little larger than the view. False = fully outside.</summary>
+        private static bool ClipToView(ref Vector2 a, ref Vector2 b)
+        {
+            const float limit = 1.1f;
+            float t0 = 0f, t1 = 1f;
+            Vector2 d = b - a;
+            for (int axis = 0; axis < 2; axis++)
+            {
+                float p = axis == 0 ? d.x : d.y, q = axis == 0 ? a.x : a.y;
+                if (Mathf.Abs(p) < 1e-6f) { if (q < -limit || q > limit) return false; continue; }
+                float near = (-limit - q) / p, far = (limit - q) / p;
+                if (near > far) { float swap = near; near = far; far = swap; }
+                t0 = Mathf.Max(t0, near); t1 = Mathf.Min(t1, far);
+                if (t0 > t1) return false;
+            }
+            Vector2 start = a;
+            a = start + d * t0;
+            b = start + d * t1;
+            return true;
+        }
+
+        private Image NewDash()
+        {
+            var rect = NewRect("RouteDash", _routeLayer);
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+            var image = rect.gameObject.AddComponent<Image>();
+            image.raycastTarget = false;
+            return image;
+        }
+
+        private Image NewIcon()
+        {
+            var rect = NewRect("Icon", _iconLayer);
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+            var image = rect.gameObject.AddComponent<Image>();
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        private QuestPin NewQuestPin()
+        {
+            var pin = new QuestPin();
+
+            // Quest area first so it sits under every pin.
+            pin.Area = NewRect("QuestArea", _areaLayer);
+            pin.Area.anchorMin = pin.Area.anchorMax = pin.Area.pivot = new Vector2(0.5f, 0.5f);
+            pin.AreaImage = pin.Area.gameObject.AddComponent<Image>();
+            pin.AreaImage.sprite = _circle;
+            pin.AreaImage.raycastTarget = false;
+
+            // A diamond, like the game's own quest markers: two squares turned 45 degrees.
+            pin.Root = NewRect("QuestPin", _pinLayer);
+            pin.Root.anchorMin = pin.Root.anchorMax = pin.Root.pivot = new Vector2(0.5f, 0.5f);
+            pin.Root.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            var outline = pin.Root.gameObject.AddComponent<Image>();
+            outline.color = new Color(0f, 0f, 0f, 0.9f);
+            outline.raycastTarget = false;
+
+            var fill = NewRect("Fill", pin.Root);
+            fill.anchorMin = new Vector2(0.2f, 0.2f);
+            fill.anchorMax = new Vector2(0.8f, 0.8f);
+            fill.offsetMin = Vector2.zero; fill.offsetMax = Vector2.zero;
+            pin.Fill = fill.gameObject.AddComponent<Image>();
+            pin.Fill.raycastTarget = false;
+
+            return pin;
         }
 
         private RectTransform NewDot(string name, Color color)
