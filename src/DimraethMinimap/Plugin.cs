@@ -18,7 +18,7 @@ namespace DimraethMinimap
     public class Plugin : BasePlugin
     {
         public const string Guid = "com.yhj.dimraeth.minimap";
-        public const string Version = "0.7.0";
+        public const string Version = "0.8.3";
 
         internal static ManualLogSource Logger;
         internal static ConfigFile Settings;
@@ -100,7 +100,9 @@ namespace DimraethMinimap
             DiagnosticsKey = Config.Bind("Keys", "Diagnostics", Key.F9, "Write scene / camera details to BepInEx/LogOutput.log (for bug reports).");
             AutoDiagnostics = Config.Bind("Debug", "AutoDiagnostics", false, "Write diagnostics once automatically a few seconds after entering a world.");
 
+            VitalBarsConfig.Bind(Config);
             AddComponent<MinimapBehaviour>();
+            AddComponent<VitalBarsBehaviour>();
             Log.LogInfo($"Dimraeth Minimap {Version} loaded.");
         }
     }

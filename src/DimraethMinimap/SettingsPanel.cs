@@ -60,6 +60,11 @@ namespace DimraethMinimap
         public SettingsPanel(Transform canvas, TMP_FontAsset font)
         {
             _panel = NewRect("Settings", canvas);
+            // Give the settings their own draw order above the quest HUD, without raising the minimap.
+            var settingsCanvas = _panel.gameObject.AddComponent<Canvas>();
+            settingsCanvas.overrideSorting = true;
+            settingsCanvas.sortingOrder = short.MaxValue;
+            _panel.gameObject.AddComponent<GraphicRaycaster>();
             var background = _panel.gameObject.AddComponent<Image>();
             background.color = PanelColor;
             background.raycastTarget = true; // lets the game see "pointer over UI" while the mouse is on the panel
@@ -84,6 +89,13 @@ namespace DimraethMinimap
             AddRow(() => T("모양", "Shape"), () => Plugin.Circular.Value ? T("원형", "Round") : T("사각형", "Square"), d => Plugin.Circular.Value = !Plugin.Circular.Value);
             AddRow(() => T("길 안내 점선", "Guidance routes"), () => OnOff(Plugin.ShowRoutes.Value), d => Plugin.ShowRoutes.Value = !Plugin.ShowRoutes.Value);
             AddRow(() => "언어 / Language", () => LanguageName(Plugin.Language.Value), d => Plugin.Language.Value = (UiLanguage)((((int)Plugin.Language.Value + d) % 3 + 3) % 3));
+            AddRow(() => T("캐릭터 게이지", "Character bars"), () => OnOff(VitalBarsConfig.Enabled.Value), d => VitalBarsConfig.Enabled.Value = !VitalBarsConfig.Enabled.Value);
+            AddRow(() => T("기력 표시", "Show stamina"), () => OnOff(VitalBarsConfig.ShowStamina.Value), d => VitalBarsConfig.ShowStamina.Value = !VitalBarsConfig.ShowStamina.Value);
+            AddRow(() => T("마력 표시", "Show mana"), () => OnOff(VitalBarsConfig.ShowConcentration.Value), d => VitalBarsConfig.ShowConcentration.Value = !VitalBarsConfig.ShowConcentration.Value);
+            AddRow(() => T("게이지 크기", "Bar size"), () => Percent(VitalBarsConfig.Scale.Value), d => Step(VitalBarsConfig.Scale, d * 0.1f, 0.6f, 2f));
+            AddRow(() => T("게이지 높이", "Bar offset"), () => VitalBarsConfig.OffsetY.Value.ToString("0"), d => Step(VitalBarsConfig.OffsetY, d * 5f, 0f, 220f));
+            AddRow(() => T("게이지 투명도", "Bar opacity"), () => Percent(VitalBarsConfig.Opacity.Value), d => Step(VitalBarsConfig.Opacity, d * 0.05f, 0.2f, 1f));
+            AddRow(() => T("게이지 숫자", "Bar numbers"), () => OnOff(VitalBarsConfig.ShowNumbers.Value), d => VitalBarsConfig.ShowNumbers.Value = !VitalBarsConfig.ShowNumbers.Value);
 
             foreach (var row in _rows)
             {
@@ -176,15 +188,17 @@ namespace DimraethMinimap
             bool top = corner == Corner.TopLeft || corner == Corner.TopRight;
             var anchor = new Vector2(right ? 1f : 0f, top ? 1f : 0f);
             float offsetY = marginY + (minimapVisible ? minimapPx + pad : 0f);
+            offsetY = Mathf.Clamp(offsetY, pad, Mathf.Max(pad, h - height - pad));
+            float offsetX = Mathf.Clamp(marginX, pad, Mathf.Max(pad, Screen.width - width - pad));
             _panel.anchorMin = _panel.anchorMax = _panel.pivot = anchor;
             _panel.sizeDelta = new Vector2(width, height);
-            _panel.anchoredPosition = new Vector2(right ? -marginX : marginX, top ? -offsetY : offsetY);
+            _panel.anchoredPosition = new Vector2(right ? -offsetX : offsetX, top ? -offsetY : offsetY);
 
             if (_builtForHeight != h || _builtKorean != Korean)
             {
                 _builtForHeight = h;
                 _builtKorean = Korean;
-                _title.text = T("미니맵 설정", "Minimap settings");
+                _title.text = T("미니맵 / 게이지 설정", "Minimap / bar settings");
                 foreach (var row in _rows) row.LabelText.text = row.Label();
                 Place(_title.rectTransform, 0, rowH, pad, width);
                 _title.fontSize = fontSize * 1.1f;

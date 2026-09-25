@@ -13,6 +13,8 @@ An **unofficial** BepInEx plugin that adds a minimap to [Dimraeth](https://store
 
 ## Features
 
+- F7 offers independent **Show stamina / Show mana** switches. Hide mana to keep health and stamina, or hide both to keep health only. Hidden rows take no space.
+- **Character-following bars (v0.8.0)**: health (red), stamina (green), and concentration (blue) above your own character. F6 toggles them; F7 adjusts size, vertical offset, opacity, and optional numbers. Independent of minimap visibility.
 - A round (or square) minimap in a screen corner, with zoom
 - **In-game settings panel (F7)**: minimap size, visible range, icon size, position, margins, opacity and shape, applied live. Korean and English
 - It crops the game's own world map instead of rendering the world a second time, so it costs **next to no frame time**
@@ -28,7 +30,21 @@ An **unofficial** BepInEx plugin that adds a minimap to [Dimraeth](https://store
 
 1. Download `DimraethMinimap-vX.Y.Z.zip` from [Releases](../../releases/latest) and extract it anywhere.
 2. Close the game and double-click `install.bat`. It finds the game through Steam (any drive) and installs the mod. If it cannot find the game it asks for the folder.
-3. Start the game. The first launch after installing takes 1-3 minutes and needs an internet connection (the mod loader analyses the game once).
+3. Start the game. The first launch needs an internet connection and may take several minutes while the mod loader prepares its files.
+
+**First-launch messages (normal setup)**
+
+The BepInEx console may show the following messages (the version and paths depend on your installation):
+
+```text
+[Message:InteropManager] Downloading unity base libraries from https://unity.bepinex.dev/libraries/6000.0.61.zip
+[Message:InteropManager] Extracting unity base libraries from ...
+[Message:InteropManager] Running Cpp2IL to generate dummy assemblies from .../global-metadata.dat
+```
+
+These messages are not errors. BepInEx downloads and extracts libraries matching the game's Unity version, then generates assemblies that let plugins access the game. Leave the game running until setup finishes; the time depends on your PC and connection. Later launches normally reuse the generated files. This preparation can run again after a game update or if BepInEx and its generated files were removed and reinstalled.
+
+If startup fails or errors appear afterward, include `BepInEx/LogOutput.log` when reporting the problem.
 
 Updating is the same steps with the new zip; your settings are kept. To uninstall, run `uninstall-minimap.bat` in the game folder. For a manual install, copy the contents of the zip's `payload` folder into the game folder.
 
@@ -36,6 +52,7 @@ If Windows shows "Windows protected your PC" for `install.bat`, choose **More in
 
 | Key | Action |
 |---|---|
+| F6 | Show / hide health, stamina, and concentration above your character |
 | F7 | Open / close the **settings panel**. Keyboard (↑↓ select, ←→ adjust) or mouse (click `<` `>`); saved when closed |
 | F8 | Show / hide the minimap |
 | PageUp / PageDown | Zoom in / out |
@@ -66,7 +83,9 @@ The project references `BepInEx\interop\*.dll` straight from the game folder. Th
 | `SettingsPanel.cs` | The F7 settings panel (keyboard and mouse, Korean / English) |
 | `Diagnostics.cs`, `FrameStats.cs` | F9 diagnostics, frame hitch counters |
 
-Game classes are touched only in `GameAccess.cs`, `GameMap.cs` and `GameMarkers.cs`, and only read. When a game update breaks one of them, only that feature switches off.
+`VitalBarsAccess.cs` reads the local player's current and maximum vitals; `VitalBarsController.cs` renders the bars and follows the player's screen position. `VitalBarsBehaviour.cs` and `VitalBarsConfig.cs` provide the independent lifecycle and configuration. Values refresh at 10 Hz and position updates every frame. The `[VitalBars]` config section also exposes these settings.
+
+Game data access is read-only. The bars do not modify stats, items, saves, or network values. When a game update breaks a feature, that feature switches off.
 
 ## License
 

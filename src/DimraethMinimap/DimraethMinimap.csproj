@@ -4,7 +4,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <AssemblyName>DimraethMinimap</AssemblyName>
     <RootNamespace>DimraethMinimap</RootNamespace>
-    <Version>0.7.0</Version>
+    <Version>0.8.3</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

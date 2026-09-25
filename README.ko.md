@@ -15,6 +15,8 @@
 
 ## 기능
 
+- F7의 **기력 표시 / 마력 표시**를 각각 켜고 끌 수 있습니다. 무투가는 마력 표시를 끄면 체력·기력만 표시되며, 둘 다 끄면 체력만 남습니다. 숨긴 줄의 빈 공간은 자동으로 줄어듭니다.
+- **캐릭터 추적 게이지 (v0.8.0)**: 본인 캐릭터 위에 체력(빨강), 기력(초록), 집중력(파랑)을 표시합니다. F6으로 켜고 끄며, F7에서 크기·높이·투명도·숫자 표시를 조절합니다. 미니맵 표시와 독립적으로 동작합니다.
 - 화면 구석에 원형(또는 사각) 미니맵 표시, 확대/축소
 - **게임 안 설정 창(F7)**: 미니맵 크기, 보이는 범위, 아이콘 크기, 위치, 간격, 투명도, 모양을 바로 조절. 한국어 / 영어 지원
 - 게임의 월드 지도를 그대로 잘라 보여 주는 방식이라 **프레임 비용이 거의 없습니다**
@@ -30,12 +32,27 @@
 
 1. [Releases](../../releases/latest)에서 `DimraethMinimap-vX.Y.Z.zip`을 받아 아무 곳에나 풉니다.
 2. 게임을 끄고 `install.bat`을 더블클릭합니다. Steam에서 게임 위치를 자동으로 찾아 설치합니다 (다른 드라이브여도 됩니다). 못 찾으면 폴더를 물어봅니다.
-3. 게임을 실행합니다. 첫 실행은 1~3분 걸립니다.
+3. 게임을 실행합니다. 첫 실행은 인터넷 연결이 필요하며, 모드 로더가 파일을 준비하는 동안 몇 분 걸릴 수 있습니다.
+
+**첫 실행에 나오는 메시지 (정상 준비 과정)**
+
+BepInEx 콘솔에 아래 메시지가 표시될 수 있습니다. 버전과 경로는 설치 환경에 따라 달라집니다.
+
+```text
+[Message:InteropManager] Downloading unity base libraries from https://unity.bepinex.dev/libraries/6000.0.61.zip
+[Message:InteropManager] Extracting unity base libraries from ...
+[Message:InteropManager] Running Cpp2IL to generate dummy assemblies from .../global-metadata.dat
+```
+
+이 메시지 자체는 오류가 아닙니다. BepInEx가 게임의 Unity 버전에 맞는 라이브러리를 다운로드하고 압축을 푼 다음, 플러그인이 게임 코드에 접근하는 데 필요한 어셈블리를 생성하는 과정입니다. 준비가 끝날 때까지 게임을 종료하지 않고 기다려 주세요. PC 성능과 인터넷 속도에 따라 걸리는 시간이 달라집니다. 이후 실행에서는 보통 생성된 파일을 재사용합니다. 게임 업데이트 후나 BepInEx와 생성 파일을 삭제하고 재설치한 경우에는 다시 진행될 수 있습니다.
+
+이후 오류가 나오거나 게임 실행에 실패하면 `BepInEx/LogOutput.log`를 첨부해 제보해 주세요.
 
 업데이트도 새 zip으로 같은 과정을 반복하면 됩니다 (설정 유지). 제거는 게임 폴더의 `uninstall-minimap.bat`을 실행하면 됩니다. 수동 설치를 원하면 zip 안 `payload` 폴더의 내용물을 게임 폴더에 복사하세요.
 
 | 키 | 동작 |
 |---|---|
+| F6 | 캐릭터 위의 체력 / 기력 / 집중력 게이지 켜기/끄기 |
 | F7 | **설정 창** 열기/닫기. 키보드(↑↓ 항목 선택, ←→ 값 조절) 또는 마우스(`<` `>` 클릭)로 조절, 닫을 때 저장 |
 | F8 | 미니맵 켜기/끄기 |
 | PageUp / PageDown | 확대 / 축소 |
@@ -68,7 +85,9 @@ powershell -File tools\package.ps1 -GameDir "D:\SteamLibrary\steamapps\common\Di
 | `SettingsPanel.cs` | F7 설정 창. 키보드와 마우스로 조작, 한국어 / 영어 |
 | `Diagnostics.cs`, `FrameStats.cs` | F9 진단 로그, 프레임 걸림 측정 |
 
-게임 클래스를 건드리는 곳은 `GameAccess.cs`, `GameMap.cs`, `GameMarkers.cs`뿐이며 모두 읽기 전용입니다. 게임 업데이트로 깨지면 해당 기능만 꺼집니다.
+`VitalBarsAccess.cs`는 본인 캐릭터의 현재/최대 체력·기력·집중력을 읽고, `VitalBarsController.cs`는 화면 위치와 게이지를 갱신합니다. `VitalBarsBehaviour.cs`와 `VitalBarsConfig.cs`는 독립적인 실행 주기와 설정을 담당합니다. 수치는 초당 10회 읽고 위치는 매 프레임 추적합니다. 설정 파일의 `[VitalBars]`에서도 조절할 수 있습니다.
+
+게임 데이터를 읽는 접근 코드는 읽기 전용입니다. 게이지는 스탯, 아이템, 저장 데이터 또는 네트워크 값을 변경하지 않습니다. 게임 업데이트로 깨지면 해당 기능만 꺼집니다.
 
 ## 라이선스
 

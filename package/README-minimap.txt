@@ -31,6 +31,11 @@ Dimraeth Minimap - 설치 안내
 
 조작
 ----
+F6          본인 캐릭터 위의 체력 / 기력 / 집중력 게이지 켜기 / 끄기
+            빨강 = 체력, 초록 = 기력, 파랑 = 집중력
+            F7에서 게이지 크기, 높이, 투명도, 숫자 표시를 조절합니다.
+            기력 표시 / 마력 표시도 각각 끌 수 있습니다. 숨긴 줄은 빈자리 없이 정리됩니다.
+            미니맵을 꺼도 게이지는 표시됩니다. 기본값은 켜짐 / 숫자 숨김입니다.
 F7          설정 창 열기 / 닫기
             키보드: 방향키 위/아래 = 항목 선택, 왼쪽/오른쪽 = 값 조절
             마우스: 값 옆의 < > 버튼 클릭, X = 닫기   (닫을 때 저장됩니다)
@@ -114,6 +119,11 @@ After installing you can delete the extracted folder and the zip.
 
 Keys
 ----
+F6          Show / hide bars above your own character
+            Red = health, green = stamina, blue = concentration
+            F7 adjusts bar size, vertical offset, opacity, and optional numbers.
+            Show stamina / Show mana can be toggled separately; hidden rows take no space.
+            Independent of minimap visibility. Enabled by default, numbers off.
 F7          Open / close the settings panel
             Keyboard: Up/Down = select an item, Left/Right = change the value
             Mouse: click the < > buttons next to a value, X = close   (saved on close)
