@@ -174,8 +174,8 @@ namespace DimraethMinimap
             return false;
         }
 
-        /// <summary>Places the panel next to the minimap (above it in the bottom corners, below it in the top ones).</summary>
-        public void Layout(Corner corner, float minimapPx, float marginX, float marginY, bool minimapVisible)
+        /// <summary>Keeps settings on the right side of the screen, independent of minimap layout.</summary>
+        public void Layout()
         {
             if (!IsOpen) return;
 
@@ -184,15 +184,9 @@ namespace DimraethMinimap
             float fontSize = rowH * 0.52f;
             float height = pad * 2f + rowH * (_rows.Count + 2.7f); // title + rows + two hint lines
 
-            bool right = corner == Corner.TopRight || corner == Corner.BottomRight;
-            bool top = corner == Corner.TopLeft || corner == Corner.TopRight;
-            var anchor = new Vector2(right ? 1f : 0f, top ? 1f : 0f);
-            float offsetY = marginY + (minimapVisible ? minimapPx + pad : 0f);
-            offsetY = Mathf.Clamp(offsetY, pad, Mathf.Max(pad, h - height - pad));
-            float offsetX = Mathf.Clamp(marginX, pad, Mathf.Max(pad, Screen.width - width - pad));
-            _panel.anchorMin = _panel.anchorMax = _panel.pivot = anchor;
+            _panel.anchorMin = _panel.anchorMax = _panel.pivot = new Vector2(1f, 0.5f);
             _panel.sizeDelta = new Vector2(width, height);
-            _panel.anchoredPosition = new Vector2(right ? -offsetX : offsetX, top ? -offsetY : offsetY);
+            _panel.anchoredPosition = new Vector2(-pad, 0f);
 
             if (_builtForHeight != h || _builtKorean != Korean)
             {

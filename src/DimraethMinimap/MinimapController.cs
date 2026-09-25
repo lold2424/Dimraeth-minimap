@@ -106,7 +106,7 @@ namespace DimraethMinimap
                 {
                     ApplyLayout();
                     if (_frame.gameObject.activeSelf) _frame.gameObject.SetActive(false);
-                    LayoutSettings(false);
+                    LayoutSettings();
                     if (!_root.activeSelf) _root.SetActive(true);
                     return;
                 }
@@ -119,7 +119,7 @@ namespace DimraethMinimap
             EnsureUi();
             if (!_frame.gameObject.activeSelf) _frame.gameObject.SetActive(true);
             ApplyLayout();
-            LayoutSettings(true);
+            LayoutSettings();
             _viewHalf = (main.orthographic ? main.orthographicSize : 8f) * Plugin.Zoom.Value;
 
             if (_mapMode)
@@ -194,12 +194,12 @@ namespace DimraethMinimap
             _settings.Toggle();
         }
 
-        private void LayoutSettings(bool minimapVisible)
+        private void LayoutSettings()
         {
             if (_settings == null || !_settings.IsOpen) return;
             float marginX = Mathf.Round(Screen.height * Plugin.MarginFraction.Value);
             float marginY = Mathf.Round(Screen.height * Plugin.MarginVertical.Value);
-            _settings.Layout(Plugin.Position.Value, _sizePx, marginX, marginY, minimapVisible);
+            _settings.Layout();
         }
 
         private void SetZoom(float zoom)

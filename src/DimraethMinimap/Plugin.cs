@@ -18,7 +18,7 @@ namespace DimraethMinimap
     public class Plugin : BasePlugin
     {
         public const string Guid = "com.yhj.dimraeth.minimap";
-        public const string Version = "0.8.3";
+        public const string Version = "0.8.4";
 
         internal static ManualLogSource Logger;
         internal static ConfigFile Settings;
